@@ -744,6 +744,7 @@ int mmput(struct mm_struct *mm)
 		__mmput(mm);
 		mm_freed = 1;
 	}
+
 	return mm_freed;
 }
 EXPORT_SYMBOL_GPL(mmput);
