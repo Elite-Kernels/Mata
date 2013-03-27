@@ -73,6 +73,13 @@ extern int *get_migratetype_fallbacks(int mtype);
 
 /* In mm/page_alloc.c; keep in sync also with show_migration_types() there */
 extern char * const migratetype_names[MIGRATE_TYPES];
+/*
+ * Returns a list which contains the migrate types on to which
+ * an allocation falls back when the free list for the migrate
+ * type mtype is depleted.
+ * The end of the list is delimited by the type MIGRATE_TYPES.
+ */
+extern int *get_migratetype_fallbacks(int mtype);
 
 #ifdef CONFIG_CMA
 bool is_cma_pageblock(struct page *page);
