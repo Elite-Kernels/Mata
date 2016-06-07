@@ -52,6 +52,9 @@ static short min_score_adj = 360;
 module_param_named(min_score_adj, min_score_adj, short,
 	S_IRUGO | S_IWUSR);
 
+static short min_score_adj = 360;
+module_param_named(min_score_adj, min_score_adj, short, 0644);
+
 /*
  * Scheduling process reclaim workqueue unecessarily
  * when the reclaim efficiency is low does not make

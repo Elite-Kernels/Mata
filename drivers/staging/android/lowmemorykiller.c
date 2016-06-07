@@ -407,6 +407,7 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 
 static atomic_t shift_adj = ATOMIC_INIT(0);
 static short adj_max_shift = 353;
+module_param_named(adj_max_shift, adj_max_shift, short, 0644);
 
 /* User knob to enable/disable adaptive lmk feature */
 static int enable_adaptive_lmk;
