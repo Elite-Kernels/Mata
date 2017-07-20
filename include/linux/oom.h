@@ -116,6 +116,8 @@ static inline bool task_will_free_mem(struct task_struct *task)
 extern void dump_tasks(struct mem_cgroup *memcg,
 		const nodemask_t *nodemask);
 
+extern void wake_oom_reaper(struct task_struct *tsk);
+
 /* sysctls */
 extern int sysctl_oom_dump_tasks;
 extern int sysctl_oom_kill_allocating_task;

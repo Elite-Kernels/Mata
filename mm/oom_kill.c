@@ -406,7 +406,221 @@ static void dump_header(struct oom_control *oc, struct task_struct *p,
 static atomic_t oom_victims = ATOMIC_INIT(0);
 static DECLARE_WAIT_QUEUE_HEAD(oom_victims_wait);
 
-bool oom_killer_disabled __read_mostly;
+static bool oom_killer_disabled __read_mostly;
+
+#define K(x) ((x) << (PAGE_SHIFT-10))
+
+/*
+ * task->mm can be NULL if the task is the exited group leader.  So to
+ * determine whether the task is using a particular mm, we examine all the
+ * task's threads: if one of those is using this mm then this task was also
+ * using it.
+ */
+bool process_shares_mm(struct task_struct *p, struct mm_struct *mm)
+{
+	struct task_struct *t;
+
+	for_each_thread(p, t) {
+		struct mm_struct *t_mm = READ_ONCE(t->mm);
+		if (t_mm)
+			return t_mm == mm;
+	}
+	return false;
+}
+
+
+#ifdef CONFIG_MMU
+/*
+ * OOM Reaper kernel thread which tries to reap the memory used by the OOM
+ * victim (if that is possible) to help the OOM killer to move on.
+ */
+static struct task_struct *oom_reaper_th;
+static DECLARE_WAIT_QUEUE_HEAD(oom_reaper_wait);
+static struct task_struct *oom_reaper_list;
+static DEFINE_SPINLOCK(oom_reaper_lock);
+
+static bool __oom_reap_task_mm(struct task_struct *tsk, struct mm_struct *mm)
+{
+	struct mmu_gather tlb;
+	struct vm_area_struct *vma;
+	struct zap_details details = {.check_swap_entries = true,
+				      .ignore_dirty = true};
+	bool ret = true;
+
+	/*
+	 * We have to make sure to not race with the victim exit path
+	 * and cause premature new oom victim selection:
+	 * __oom_reap_task_mm		exit_mm
+	 *   mmget_not_zero
+	 *				  mmput
+	 *				    atomic_dec_and_test
+	 *				  exit_oom_victim
+	 *				[...]
+	 *				out_of_memory
+	 *				  select_bad_process
+	 *				    # no TIF_MEMDIE task selects new victim
+	 *  unmap_page_range # frees some memory
+	 */
+	mutex_lock(&oom_lock);
+
+	if (!down_read_trylock(&mm->mmap_sem)) {
+		ret = false;
+		goto unlock_oom;
+	}
+
+	/*
+	 * increase mm_users only after we know we will reap something so
+	 * that the mmput_async is called only when we have reaped something
+	 * and delayed __mmput doesn't matter that much
+	 */
+	if (!mmget_not_zero(mm)) {
+		up_read(&mm->mmap_sem);
+		goto unlock_oom;
+	}
+
+	/*
+	 * Tell all users of get_user/copy_from_user etc... that the content
+	 * is no longer stable. No barriers really needed because unmapping
+	 * should imply barriers already and the reader would hit a page fault
+	 * if it stumbled over a reaped memory.
+	 */
+	set_bit(MMF_UNSTABLE, &mm->flags);
+
+	tlb_gather_mmu(&tlb, mm, 0, -1);
+	for (vma = mm->mmap ; vma; vma = vma->vm_next) {
+		if (is_vm_hugetlb_page(vma))
+			continue;
+
+		/*
+		 * mlocked VMAs require explicit munlocking before unmap.
+		 * Let's keep it simple here and skip such VMAs.
+		 */
+		if (vma->vm_flags & VM_LOCKED)
+			continue;
+
+		/*
+		 * Only anonymous pages have a good chance to be dropped
+		 * without additional steps which we cannot afford as we
+		 * are OOM already.
+		 *
+		 * We do not even care about fs backed pages because all
+		 * which are reclaimable have already been reclaimed and
+		 * we do not want to block exit_mmap by keeping mm ref
+		 * count elevated without a good reason.
+		 */
+		if (vma_is_anonymous(vma) || !(vma->vm_flags & VM_SHARED))
+			unmap_page_range(&tlb, vma, vma->vm_start, vma->vm_end,
+					 &details);
+	}
+	tlb_finish_mmu(&tlb, 0, -1);
+	pr_info("oom_reaper: reaped process %d (%s), now anon-rss:%lukB, file-rss:%lukB, shmem-rss:%lukB\n",
+			task_pid_nr(tsk), tsk->comm,
+			K(get_mm_counter(mm, MM_ANONPAGES)),
+			K(get_mm_counter(mm, MM_FILEPAGES)),
+			K(get_mm_counter(mm, MM_SHMEMPAGES)));
+	up_read(&mm->mmap_sem);
+
+	/*
+	 * Drop our reference but make sure the mmput slow path is called from a
+	 * different context because we shouldn't risk we get stuck there and
+	 * put the oom_reaper out of the way.
+	 */
+	mmput_async(mm);
+unlock_oom:
+	mutex_unlock(&oom_lock);
+	return ret;
+}
+
+#define MAX_OOM_REAP_RETRIES 10
+static void oom_reap_task(struct task_struct *tsk)
+{
+	int attempts = 0;
+	struct mm_struct *mm = tsk->signal->oom_mm;
+
+	/* Retry the down_read_trylock(mmap_sem) a few times */
+	while (attempts++ < MAX_OOM_REAP_RETRIES && !__oom_reap_task_mm(tsk, mm))
+		schedule_timeout_idle(HZ/10);
+
+	if (attempts <= MAX_OOM_REAP_RETRIES)
+		goto done;
+
+
+	pr_info("oom_reaper: unable to reap pid:%d (%s)\n",
+		task_pid_nr(tsk), tsk->comm);
+	debug_show_all_locks();
+
+done:
+	tsk->oom_reaper_list = NULL;
+
+	/*
+	 * Hide this mm from OOM killer because it has been either reaped or
+	 * somebody can't call up_write(mmap_sem).
+	 */
+	set_bit(MMF_OOM_SKIP, &mm->flags);
+
+	/* Drop a reference taken by wake_oom_reaper */
+	put_task_struct(tsk);
+}
+
+static int oom_reaper(void *unused)
+{
+	while (true) {
+		struct task_struct *tsk = NULL;
+
+		wait_event_freezable(oom_reaper_wait, oom_reaper_list != NULL);
+		spin_lock(&oom_reaper_lock);
+		if (oom_reaper_list != NULL) {
+			tsk = oom_reaper_list;
+			oom_reaper_list = tsk->oom_reaper_list;
+		}
+		spin_unlock(&oom_reaper_lock);
+
+		if (tsk)
+			oom_reap_task(tsk);
+	}
+
+	return 0;
+}
+
+void wake_oom_reaper(struct task_struct *tsk)
+{
+	if (!oom_reaper_th)
+		return;
+
+	/* move the lock here to avoid scenario of queuing
+	 * the same task by both OOM killer and LMK.
+	 */
+	spin_lock(&oom_reaper_lock);
+	/* tsk is already queued? */
+	if (tsk == oom_reaper_list || tsk->oom_reaper_list) {
+		spin_unlock(&oom_reaper_lock);
+		return;
+	}
+
+	get_task_struct(tsk);
+
+	tsk->oom_reaper_list = oom_reaper_list;
+	oom_reaper_list = tsk;
+	spin_unlock(&oom_reaper_lock);
+	wake_up(&oom_reaper_wait);
+}
+
+static int __init oom_init(void)
+{
+	oom_reaper_th = kthread_run(oom_reaper, NULL, "oom_reaper");
+	if (IS_ERR(oom_reaper_th)) {
+		pr_err("Unable to start OOM reaper %ld. Continuing regardless\n",
+				PTR_ERR(oom_reaper_th));
+		oom_reaper_th = NULL;
+	}
+	return 0;
+}
+subsys_initcall(oom_init)
+#else
+static inline void wake_oom_reaper(struct task_struct *tsk)
+{
+}
+#endif /* CONFIG_MMU */
 
 /**
  * mark_oom_victim - mark the given task as OOM victim
