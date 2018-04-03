@@ -30,7 +30,7 @@
   m=$k/out/$c/system/lib/modules
   z=$c-$today
 
-TOOLCHAIN=/home/forrest/kernel/linaro-6.1_aarch64/bin/aarch64-linux-android-
+TOOLCHAIN=/home/forrest/kernel/gcc4.9_aarch64/bin/aarch64-linux-android-
 export ARCH=arm64
 export SUBARCH=arm64
 

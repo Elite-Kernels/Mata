@@ -348,7 +348,7 @@ include scripts/Kbuild.include
 # Make variables (CC, etc...)
 AS		= $(CROSS_COMPILE)as
 LD		= $(CROSS_COMPILE)ld
-CC		= $(CROSS_COMPILE)gcc
+REAL_CC		= $(CROSS_COMPILE)gcc
 CPP		= $(CC) -E
 AR		= $(CROSS_COMPILE)ar
 NM		= $(CROSS_COMPILE)nm
@@ -365,7 +365,7 @@ CHECK		= sparse
 
 # Use the wrapper for the compiler.  This wrapper scans for new
 # warnings and causes the build to stop upon encountering them.
-#CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
+CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
@@ -400,18 +400,9 @@ KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
-		   -Wno-format-security -Wno-unused -Wno-maybe-uninitialized \
-                   -Wno-array-bounds -Wno-memset-transposed-args \
-                   -mcpu=cortex-a57.cortex-a53 -mtune=cortex-a57.cortex-a53 \
-                   -march=armv8-a+crc \
-                   -fmodulo-sched -fmodulo-sched-allow-regmoves \
-                   -funswitch-loops -fpredictive-commoning -fgcse-after-reload \
-		   -fno-aggressive-loop-optimizations \
-		   -fno-delete-null-pointer-checks \
-                   -std=gnu89 $(call cc-option,-fno-PIE)
+		   -Wno-format-security \
+		   -std=gnu89 $(call cc-option,-fno-PIE)
 
-# GCC 6.1 is too strict
-KBUILD_CFLAGS	+= -Wno-misleading-indentation -Wno-tautological-compare
 
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
