@@ -30,7 +30,11 @@
   m=$k/out/$c/system/lib/modules
   z=$c-$today
 
-TOOLCHAIN=/home/forrest/kernel/gcc4.9_aarch64/bin/aarch64-linux-android-
+#TOOLCHAIN=/home/forrest/kernel/gcc-linaro-6.4.1/bin/aarch64-linux-gnu-
+export CLANG_PATH=/home/forrest/kernel/clang5/bin
+export PATH=${CLANG_PATH}:${PATH}
+export CLANG_TRIPLE=aarch64-linux-gnu-
+export CROSS_COMPILE=/home/forrest/kernel/gcc4.9_aarch64/bin/aarch64-linux-android-
 export ARCH=arm64
 export SUBARCH=arm64
 
@@ -43,8 +47,8 @@ find ./ -name '*~' | xargs rm
 
 # make kernel
 
-make ARCH=arm64 CROSS_COMPILE=$TOOLCHAIN O=out elite_defconfig
-make ARCH=arm64 CROSS_COMPILE=$TOOLCHAIN O=out -j`grep 'processor' /proc/cpuinfo | wc -l`
+make O=out CC=clang elite_defconfig
+make O=out CC=clang -j`grep 'processor' /proc/cpuinfo | wc -l`
 
 # Grab zImage-dtb
 #   echo ""
