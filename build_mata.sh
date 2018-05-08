@@ -48,7 +48,7 @@ find ./ -name '*~' | xargs rm
 
 # make kernel
 
-make O=out CC=clang elite_defconfig
+make O=out CC=clang elite_kasan_defconfig
 make O=out CC=clang -j`grep 'processor' /proc/cpuinfo | wc -l`
 
 # Grab zImage-dtb
