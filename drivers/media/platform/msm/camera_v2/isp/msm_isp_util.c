@@ -196,7 +196,7 @@ uint32_t msm_isp_get_framedrop_period(
 		return 32;
 		break;
 	case SKIP_ALL:
-		return 1;
+		return SKIP_ALL;
 	default:
 		return 1;
 	}
@@ -214,7 +214,7 @@ void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp,
 		time_stamp->buf_time.tv_sec    = time_stamp->vt_time.tv_sec;
 		time_stamp->buf_time.tv_usec   = time_stamp->vt_time.tv_usec;
 	} else {
-		get_monotonic_boottime(&ts);
+		ktime_get_ts(&ts);
 		time_stamp->buf_time.tv_sec    = ts.tv_sec;
 		time_stamp->buf_time.tv_usec   = ts.tv_nsec/1000;
 	}

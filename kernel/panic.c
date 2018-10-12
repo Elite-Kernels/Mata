@@ -24,13 +24,10 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/console.h>
+#include <soc/qcom/minidump.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/exception.h>
-
-#ifdef CONFIG_ESSENTIAL_APR
-#include <essential/essential_reason.h>
-#endif
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -84,10 +81,6 @@ void panic(const char *fmt, ...)
 	long i, i_next = 0;
 	int state = 0;
 
-#ifdef CONFIG_ESSENTIAL_APR
-	qpnp_pon_set_restart_reason(REASON_KERNEL_PANIC);
-#endif
-
 	trace_kernel_panic(0);
 
 	/*
@@ -116,6 +109,7 @@ void panic(const char *fmt, ...)
 	va_start(args, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
+	dump_stack_minidump(0);
 	pr_emerg("Kernel panic - not syncing: %s\n", buf);
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*

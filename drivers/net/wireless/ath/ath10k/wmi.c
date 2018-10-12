@@ -2341,9 +2341,9 @@ int ath10k_wmi_event_mgmt_rx(struct ath10k *ar, struct sk_buff *skb)
 	 * of mgmt rx.
 	 */
 	if (channel >= 1 && channel <= 14) {
-		status->band = IEEE80211_BAND_2GHZ;
+		status->band = NL80211_BAND_2GHZ;
 	} else if (channel >= 36 && channel <= 165) {
-		status->band = IEEE80211_BAND_5GHZ;
+		status->band = NL80211_BAND_5GHZ;
 	} else {
 		/* Shouldn't happen unless list of advertised channels to
 		 * mac80211 has been changed.
@@ -2353,7 +2353,7 @@ int ath10k_wmi_event_mgmt_rx(struct ath10k *ar, struct sk_buff *skb)
 		return 0;
 	}
 
-	if (phy_mode == MODE_11B && status->band == IEEE80211_BAND_5GHZ)
+	if (phy_mode == MODE_11B && status->band == NL80211_BAND_5GHZ)
 		ath10k_dbg(ar, ATH10K_DBG_MGMT, "wmi mgmt rx 11b (CCK) on 5GHz\n");
 
 	sband = &ar->mac.sbands[status->band];
@@ -2408,7 +2408,7 @@ static int freq_to_idx(struct ath10k *ar, int freq)
 	struct ieee80211_supported_band *sband;
 	int band, ch, idx = 0;
 
-	for (band = IEEE80211_BAND_2GHZ; band < IEEE80211_NUM_BANDS; band++) {
+	for (band = NL80211_BAND_2GHZ; band < NUM_NL80211_BANDS; band++) {
 		sband = ar->hw->wiphy->bands[band];
 		if (!sband)
 			continue;
@@ -4076,19 +4076,20 @@ void ath10k_wmi_event_phyerr(struct ath10k *ar, struct sk_buff *skb)
 
 		left_len -= buf_len;
 
-		switch (phy_err_code) {
-		case PHY_ERROR_RADAR:
+		if ((phy_err_code == PHY_ERROR_RADAR) ||
+		    (hdr_arg.phy_err_mask0 &
+				WMI_PHY_ERROR_MASK0_RADAR)) {
 			ath10k_wmi_event_dfs(ar, &phyerr_arg, tsf);
-			break;
-		case PHY_ERROR_SPECTRAL_SCAN:
+		} else if ((phy_err_code ==
+				WMI_PHY_ERROR_MASK0_SPECTRAL_SCAN) ||
+			   (hdr_arg.phy_err_mask0 &
+				WMI_PHY_ERROR_MASK0_SPECTRAL_SCAN)) {
 			ath10k_wmi_event_spectral_scan(ar, &phyerr_arg, tsf);
-			break;
-		case PHY_ERROR_FALSE_RADAR_EXT:
+		} else if ((phy_err_code == PHY_ERROR_FALSE_RADAR_EXT) ||
+			   (hdr_arg.phy_err_mask0 &
+				WMI_PHY_ERROR_MASK0_FALSE_RADAR_EXT)) {
 			ath10k_wmi_event_dfs(ar, &phyerr_arg, tsf);
 			ath10k_wmi_event_spectral_scan(ar, &phyerr_arg, tsf);
-			break;
-		default:
-			break;
 		}
 
 		phyerr = phyerr + phyerr_arg.hdr_len + buf_len;
@@ -6192,6 +6193,8 @@ void ath10k_wmi_start_scan_init(struct ath10k *ar,
 		| WMI_SCAN_EVENT_BSS_CHANNEL
 		| WMI_SCAN_EVENT_FOREIGN_CHANNEL
 		| WMI_SCAN_EVENT_DEQUEUED;
+	if (QCA_REV_WCN3990(ar))
+		arg->scan_ctrl_flags = ar->fw_flags->flags;
 	arg->scan_ctrl_flags |= WMI_SCAN_CHAN_STAT_EVENT;
 	arg->n_bssids = 1;
 	arg->bssids[0].bssid = "\xFF\xFF\xFF\xFF\xFF\xFF";
