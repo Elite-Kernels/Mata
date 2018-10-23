@@ -31,11 +31,11 @@
   z=$c-$today
 
 #TOOLCHAIN=/home/forrest/kernel/gcc-linaro-6.4.1/bin/aarch64-linux-gnu-
-export CLANG_PATH=/home/forrest/kernel/clang5/bin
+export CLANG_PATH=/home/forrest/kernel/clang7/bin
 export PATH=${CLANG_PATH}:${PATH}
-export LD_LIBRARY_PATH=/home/forrest/kernel/clang5/lib64:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=/home/forrest/kernel/clang7/lib64:${LD_LIBRARY_PATH}
 export CLANG_TRIPLE=aarch64-linux-gnu-
-export CROSS_COMPILE=/home/forrest/kernel/gcc4.9_aarch64/bin/aarch64-linux-android-
+export CROSS_COMPILE=/home/forrest/kernel/gcc8_aarch64/bin/aarch64-linux-gnu-
 export ARCH=arm64
 export SUBARCH=arm64
 
@@ -48,7 +48,7 @@ find ./ -name '*~' | xargs rm
 
 # make kernel
 
-make O=out CC=clang elite_defconfig
+make O=out CC=clang elite_eas_defconfig
 make O=out CC=clang -j`grep 'processor' /proc/cpuinfo | wc -l`
 
 # Grab zImage-dtb
@@ -64,7 +64,7 @@ make O=out CC=clang -j`grep 'processor' /proc/cpuinfo | wc -l`
    done
    
 # Build Zip
- clear
+ #clear
    echo "Creating $z.zip"
      cd $k/out/$c/
        7z a -tzip -mx5 "$z.zip"
