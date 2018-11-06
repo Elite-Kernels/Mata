@@ -35,7 +35,7 @@ export CLANG_PATH=/home/forrest/kernel/clang7/bin
 export PATH=${CLANG_PATH}:${PATH}
 export LD_LIBRARY_PATH=/home/forrest/kernel/clang7/lib64:${LD_LIBRARY_PATH}
 export CLANG_TRIPLE=aarch64-linux-gnu-
-export CROSS_COMPILE=/home/forrest/kernel/gcc8_aarch64/bin/aarch64-linux-gnu-
+export CROSS_COMPILE=/home/forrest/kernel/gcc4.9_aarch64/bin/aarch64-linux-android-
 export ARCH=arm64
 export SUBARCH=arm64
 
