@@ -48,7 +48,6 @@
 #include <linux/fs.h>
 #include <linux/cpuset.h>
 #include <linux/vmpressure.h>
-#include <linux/freezer.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/almk.h>
@@ -115,10 +114,6 @@ module_param_named(enable_adaptive_lmk, enable_adaptive_lmk, int, 0644);
  */
 static int vmpressure_file_min;
 module_param_named(vmpressure_file_min, vmpressure_file_min, int, 0644);
-
-/* User knob to enable/disable oom reaping feature */
-static int oom_reaper;
-module_param_named(oom_reaper, oom_reaper, int, 0644);
 
 enum {
 	VMPRESSURE_NO_ADJUST = 0,
@@ -426,16 +421,6 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 	}
 }
 
-static void mark_lmk_victim(struct task_struct *tsk)
-{
-	struct mm_struct *mm = tsk->mm;
-
-	if (!cmpxchg(&tsk->signal->oom_mm, NULL, mm)) {
-		atomic_inc(&tsk->signal->oom_mm->mm_count);
-		set_bit(MMF_OOM_VICTIM, &mm->flags);
-	}
-}
-
 static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
@@ -562,11 +547,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		send_sig(SIGKILL, selected, 0);
 		if (selected->mm)
 			task_set_lmk_waiting(selected);
-		if (oom_reaper)
-			mark_lmk_victim(selected);
 		task_unlock(selected);
-		if (oom_reaper)
-			wake_oom_reaper(selected);
 		trace_lowmemory_kill(selected, cache_size, cache_limit, free);
 		lowmem_print(1, "Killing '%s' (%d) (tgid %d), adj %hd,\n"
 			"to free %ldkB on behalf of '%s' (%d) because\n"
