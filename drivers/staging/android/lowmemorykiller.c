@@ -152,8 +152,8 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 		return 0;
 
 	if (pressure >= 95) {
-		other_file = global_node_page_state(NR_FILE_PAGES) -
-			global_node_page_state(NR_SHMEM) -
+		other_file = global_page_state(NR_FILE_PAGES) -
+			global_page_state(NR_SHMEM) -
 			total_swapcache_pages();
 		other_free = global_page_state(NR_FREE_PAGES);
 
@@ -165,8 +165,8 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 		if (lowmem_minfree_size < array_size)
 			array_size = lowmem_minfree_size;
 
-		other_file = global_node_page_state(NR_FILE_PAGES) -
-			global_node_page_state(NR_SHMEM) -
+		other_file = global_page_state(NR_FILE_PAGES) -
+			global_page_state(NR_SHMEM) -
 			total_swapcache_pages();
 
 		other_free = global_page_state(NR_FREE_PAGES);
@@ -177,8 +177,8 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 			trace_almk_vmpressure(pressure, other_free, other_file);
 		}
 	} else if (atomic_read(&shift_adj)) {
-		other_file = global_node_page_state(NR_FILE_PAGES) -
-			global_node_page_state(NR_SHMEM) -
+		other_file = global_page_state(NR_FILE_PAGES) -
+			global_page_state(NR_SHMEM) -
 			total_swapcache_pages();
 
 		other_free = global_page_state(NR_FREE_PAGES);
@@ -297,9 +297,9 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 							       NR_FREE_PAGES);
 			if (other_file != NULL)
 				*other_file -= zone_page_state(zone,
-					NR_ZONE_INACTIVE_FILE) +
+					NR_INACTIVE_FILE) +
 					zone_page_state(zone,
-					NR_ZONE_ACTIVE_FILE);
+					NR_ACTIVE_FILE);
 		} else if (zone_idx < classzone_idx) {
 			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0) &&
 			    other_free) {
@@ -368,7 +368,7 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 
 	zonelist = node_zonelist(0, gfp_mask);
 	high_zoneidx = gfp_zone(gfp_mask);
-	zref = first_zones_zonelist(zonelist, high_zoneidx, NULL);
+	zref = first_zones_zonelist(zonelist, high_zoneidx, NULL, &preferred_zone);
 	preferred_zone = zref->zone;
 	classzone_idx = zone_idx(preferred_zone);
 	use_cma_pages = can_use_cma_pages(gfp_mask);
@@ -442,12 +442,12 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 	other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
 
-	if (global_node_page_state(NR_SHMEM) + total_swapcache_pages() +
-			global_node_page_state(NR_UNEVICTABLE) <
-			global_node_page_state(NR_FILE_PAGES))
-		other_file = global_node_page_state(NR_FILE_PAGES) -
-					global_node_page_state(NR_SHMEM) -
-					global_node_page_state(NR_UNEVICTABLE) -
+	if (global_page_state(NR_SHMEM) + total_swapcache_pages() +
+			global_page_state(NR_UNEVICTABLE) <
+			global_page_state(NR_FILE_PAGES))
+		other_file = global_page_state(NR_FILE_PAGES) -
+					global_page_state(NR_SHMEM) -
+					global_page_state(NR_UNEVICTABLE) -
 					total_swapcache_pages();
 	else
 		other_file = 0;
@@ -570,7 +570,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 			totalreserve_pages * (long)(PAGE_SIZE / 1024),
 			global_page_state(NR_FREE_PAGES) *
 			(long)(PAGE_SIZE / 1024),
-			global_node_page_state(NR_FILE_PAGES) *
+			global_page_state(NR_FILE_PAGES) *
 			(long)(PAGE_SIZE / 1024),
 			sc->gfp_mask);
 
