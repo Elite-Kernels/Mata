@@ -652,7 +652,8 @@ bool is_secure_vmid_valid(int vmid)
 		vmid == VMID_CP_CAMERA ||
 		vmid == VMID_CP_SEC_DISPLAY ||
 		vmid == VMID_CP_APP ||
-		vmid == VMID_CP_CAMERA_PREVIEW);
+		vmid == VMID_CP_CAMERA_PREVIEW ||
+		vmid == VMID_CP_SPSS_SP_SHARED);
 }
 
 int get_secure_vmid(unsigned long flags)
@@ -673,6 +674,8 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_APP;
 	if (flags & ION_FLAG_CP_CAMERA_PREVIEW)
 		return VMID_CP_CAMERA_PREVIEW;
+	if (flags & ION_FLAG_CP_SPSS_SP_SHARED)
+		return VMID_CP_SPSS_SP_SHARED;
 	return -EINVAL;
 }
 /* fix up the cases where the ioctl direction bits are incorrect */
@@ -765,14 +768,14 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 		int ret;
 
 		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
-			ION_HEAP_TYPE_SECURE_DMA,
+			(enum ion_heap_type)ION_HEAP_TYPE_SECURE_DMA,
 			(void *)data.prefetch_data.len,
 			ion_secure_cma_prefetch);
 		if (ret)
 			return ret;
 
 		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
-				     ION_HEAP_TYPE_SYSTEM_SECURE,
+				     (enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE,
 				     (void *)&data.prefetch_data,
 				     ion_system_secure_heap_prefetch);
 		if (ret)
@@ -784,7 +787,7 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 		int ret;
 
 		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
-			ION_HEAP_TYPE_SECURE_DMA,
+			(enum ion_heap_type)ION_HEAP_TYPE_SECURE_DMA,
 			(void *)data.prefetch_data.len,
 			ion_secure_cma_drain_pool);
 
@@ -792,7 +795,7 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 			return ret;
 
 		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
-				     ION_HEAP_TYPE_SYSTEM_SECURE,
+				     (enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE,
 				     (void *)&data.prefetch_data,
 				     ion_system_secure_heap_drain);
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -328,7 +328,7 @@ kgsl_mem_entry_destroy(struct kref *kref)
 			    entry->memdesc.sgt->nents, i) {
 			page = sg_page(sg);
 			for (j = 0; j < (sg->length >> PAGE_SHIFT); j++)
-				set_page_dirty(nth_page(page, j));
+				set_page_dirty_lock(nth_page(page, j));
 		}
 	}
 
@@ -2083,7 +2083,7 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, struct file *vmfile)
 
 	if (ret == 0) {
 		npages = get_user_pages(current, current->mm, memdesc->useraddr,
-					sglen, write, 0, pages, NULL);
+					sglen, write ? FOLL_WRITE : 0, pages, NULL);
 		ret = (npages < 0) ? (int)npages : 0;
 	}
 	up_read(&current->mm->mmap_sem);
