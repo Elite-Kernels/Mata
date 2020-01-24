@@ -19,11 +19,11 @@
         cd $k
 # Setup output directory
     mkdir -p "out/$c"
-    mkdir -p "out/$c/system/lib/modules/"
-    cp -R "$t/system" out/$c
+#    mkdir -p "out/$c/system/lib/modules/"
+#    cp -R "$t/system" out/$c
     cp -R "$t/META-INF" out/$c
-    cp -R "$t/patch" out/$c
-    cp -R "$t/ramdisk" out/$c
+#    cp -R "$t/patch" out/$c
+#    cp -R "$t/ramdisk" out/$c
     cp -R "$t/tools" out/$c
     cp -R "$t/anykernel.sh" out/$c
 
@@ -31,27 +31,30 @@
   z=$c-$today
 
 #TOOLCHAIN=/home/forrest/kernel/gcc-linaro-6.4.1/bin/aarch64-linux-gnu-
-#export CLANG_PATH=/home/forrest/kernel/clang7/bin
+#export CLANG_PATH=/home/forrest/kernel/clang-r353983c/bin
 #export PATH=${CLANG_PATH}:${PATH}
-#export LD_LIBRARY_PATH=/home/forrest/kernel/clang7/lib64:${LD_LIBRARY_PATH}
-export CLANG_TRIPLE=aarch64-linux-gnu-
-export CROSS_COMPILE=/home/forrest/kernel/gcc4.9_aarch64/bin/aarch64-linux-android-
+#export LD_LIBRARY_PATH=/home/forrest/kernel/clang-r353983c/lib64:${LD_LIBRARY_PATH}
+TOOLCHAIN=/home/forrest/kernel/linaro8.3/bin/aarch64-linux-gnu-
 export ARCH=arm64
 export SUBARCH=arm64
-export CLANG_PREBUILT_BIN=home/forrest/kernel/clang-r353983c/bin
-export CC_CMD=${CLANG_PREBUILT_BIN}/clang
+#export CROSS_COMPILE=/home/forrest/kernel/gcc4.9_aarch64/bin/aarch64-linux-android-
+#export CLANG_TRIPLE=aarch64-linux-gnu-
+#export CLANG_PREBUILT_BIN=/home/forrest/kernel/clang-r353983c/bin
+#export CC_CMD=${CLANG_PREBUILT_BIN}/clang
 
 # make mrproper
 #make CROSS_COMPILE=$TOOLCHAIN -j`grep 'processor' /proc/cpuinfo | wc -l` mrproper
  
 # remove backup files
-find ./ -name '*~' | xargs rm
+#find ./ -name '*~' | xargs rm
 # rm compile.log
 
 # make kernel
-
-make O=out CC=clang elite_eas_defconfig
-make O=out CC=clang -j`grep 'processor' /proc/cpuinfo | wc -l`
+#make O=out CC=clang mata_defconfig
+#make O=out CC=${CC_CMD} elite_eas_defconfig
+#make O=out CC=${CC_CMD} -j`grep 'processor' /proc/cpuinfo | wc -l`
+make O=out CROSS_COMPILE=$TOOLCHAIN elite_eas_defconfig
+make O=out CROSS_COMPILE=$TOOLCHAIN -j`grep 'processor' /proc/cpuinfo | wc -l`
 
 # Grab zImage-dtb
 #   echo ""
